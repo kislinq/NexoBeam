@@ -1,0 +1,6 @@
+{
+  "name": "NexoBeam",
+  "description": "Next-generation realtime messenger with cyber-luminescent aesthetic and Supabase backend",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

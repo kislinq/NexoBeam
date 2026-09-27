@@ -1,0 +1,7 @@
+## NexoBeam Local Configuration
+# To configure your Supabase backend credentials, copy this file or configure .env:
+# SUPABASE_URL=https://<your-project-ref>.supabase.co
+# SUPABASE_ANON_KEY=<your-anon-public-key>
+#
+# Alternatively, set SUPABASE_URL and SUPABASE_ANON_KEY in your .env file or
+# in AI Studio Secrets panel.

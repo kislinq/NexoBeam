@@ -1,0 +1,12 @@
+{
+  "name": "nexobeam-supabase-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "http-proxy": "^1.18.1"
+  }
+}
