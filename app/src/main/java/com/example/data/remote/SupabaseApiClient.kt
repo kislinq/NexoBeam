@@ -213,7 +213,7 @@ class SupabaseApiClient {
     private val _realtimeEvents =
         MutableSharedFlow<JSONObject>(extraBufferCapacity = 64)
 
-    val realtimeEvents: SharedFlow<JSONObject> = realtimeEvents
+    val realtimeEvents: SharedFlow<JSONObject> = _realtimeEvents
 
     private var webSocket: WebSocket? = null
     private var heartbeatJob: Job? = null
