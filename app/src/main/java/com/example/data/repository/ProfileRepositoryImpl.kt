@@ -42,9 +42,7 @@ class ProfileRepositoryImpl(
                         id = userId,
                         username = json.optString("username", "user"),
                         displayName = json.optString("display_name", "User"),
-                        avatarUrl = AppConfig.resolveSupabaseAssetUrl(
-                            json.optString("avatar_url").ifEmpty { null }
-                        ),
+                        avatarUrl = json.optString("avatar_url").ifEmpty { null },
                         bio = json.optString("bio").ifEmpty { null },
                         lastSeen = System.currentTimeMillis()
                     )
@@ -61,6 +59,7 @@ class ProfileRepositoryImpl(
     }
 
     override suspend fun saveProfile(profile: UserProfile): AppResult<Unit> {
+        // Save to Room immediately
         database.profileDao().upsertProfile(ProfileEntity.fromDomain(profile))
 
         val token = sessionManager.getAccessToken()
@@ -80,12 +79,8 @@ class ProfileRepositoryImpl(
 
     override suspend fun uploadAvatar(userId: String, imageUri: Uri): AppResult<String> {
         val context = NexoApplication.instance
-        val compressedBytes = ImageCompressor.compressImage(
-            context,
-            imageUri,
-            maxDimension = 600,
-            quality = 85
-        ) ?: return AppResult.Error("Не удалось обработать изображение")
+        val compressedBytes = ImageCompressor.compressImage(context, imageUri, maxDimension = 600, quality = 85)
+            ?: return AppResult.Error("Не удалось обработать изображение")
 
         val fileName = "avatar_${userId}_${System.currentTimeMillis()}.jpg"
 
@@ -125,7 +120,6 @@ class ProfileRepositoryImpl(
             put("id", userId)
             put("avatar_url", avatarUrl)
         }
-
         val remoteResult = api.upsertProfile(json, token)
         if (remoteResult.isFailure) {
             val error = remoteResult.exceptionOrNull()
@@ -158,12 +152,9 @@ class ProfileRepositoryImpl(
                     .format(Date(now))
             )
         }
-
         return api.upsertProfile(json, token).fold(
             onSuccess = { AppResult.Success(Unit) },
-            onFailure = {
-                AppResult.Error(it.message ?: "Не удалось обновить статус", it)
-            }
+            onFailure = { AppResult.Error(it.message ?: "Не удалось обновить статус", it) }
         )
     }
 
@@ -174,6 +165,7 @@ class ProfileRepositoryImpl(
         val currentUserId = sessionManager.getUserId() ?: ""
         val token = sessionManager.getAccessToken()
 
+        // Local search first
         val localMatches = database.profileDao().searchProfiles(cleanQuery)
             .filter { it.id != currentUserId }
             .map { it.toDomain() }
@@ -182,31 +174,27 @@ class ProfileRepositoryImpl(
         return remoteRes.fold(
             onSuccess = { arr ->
                 val list = mutableListOf<UserProfile>()
-
                 for (i in 0 until arr.length()) {
                     val obj = arr.getJSONObject(i)
                     val id = obj.optString("id")
-
                     if (id != currentUserId) {
                         val p = UserProfile(
                             id = id,
                             username = obj.optString("username"),
                             displayName = obj.optString("display_name"),
-                            avatarUrl = AppConfig.resolveSupabaseAssetUrl(
-                                obj.optString("avatar_url").ifEmpty { null }
-                            ),
+                            avatarUrl = obj.optString("avatar_url").ifEmpty { null },
                             bio = obj.optString("bio").ifEmpty { null }
                         )
-
                         database.profileDao().upsertProfile(ProfileEntity.fromDomain(p))
                         list.add(p)
                     }
                 }
-
+                // Merge distinct
                 val merged = (localMatches + list).distinctBy { it.id }
                 AppResult.Success(merged)
             },
             onFailure = {
+                // If offline, return local matches
                 AppResult.Success(localMatches)
             }
         )
