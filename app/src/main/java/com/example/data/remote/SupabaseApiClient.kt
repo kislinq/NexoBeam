@@ -240,6 +240,24 @@ class SupabaseApiClient {
         return headers
     }
 
+    private fun logHttpFailure(operation: String, statusCode: Int, body: String) {
+        val error = try {
+            JSONObject(body)
+        } catch (_: Exception) {
+            null
+        }
+        val databaseCode = error?.optString("code")?.takeIf { it.isNotBlank() }
+        val message = error?.optString("message")?.takeIf { it.isNotBlank() }
+            ?: "Response body omitted"
+
+        Log.e(
+            "SupabaseApiClient",
+            "$operation failed with HTTP $statusCode" +
+                    (databaseCode?.let { " (database code $it)" } ?: "") +
+                    ": $message"
+        )
+    }
+
     // --- AUTH REST API ---
 
     suspend fun signUp(
@@ -734,6 +752,11 @@ class SupabaseApiClient {
                             arr.getJSONObject(0)
                         )
                     } else {
+                        logHttpFailure(
+                            "insertChat fallback",
+                            retryResp.code,
+                            retryBody
+                        )
                         Result.failure(
                             Exception(
                                 "HTTP ${retryResp.code}: $retryBody"
@@ -741,6 +764,7 @@ class SupabaseApiClient {
                         )
                     }
                 } else {
+                    logHttpFailure("insertChat", response.code, body)
                     Result.failure(
                         Exception(
                             "HTTP ${response.code}: $body"
@@ -835,14 +859,21 @@ class SupabaseApiClient {
                     if (retryResp.isSuccessful) {
                         Result.success(Unit)
                     } else {
+                        val retryBody =
+                            retryResp.body?.string() ?: ""
+                        logHttpFailure(
+                            "addChatMember fallback",
+                            retryResp.code,
+                            retryBody
+                        )
                         Result.failure(
                             Exception(
-                                "HTTP ${retryResp.code}: " +
-                                        (retryResp.body?.string() ?: "")
+                                "HTTP ${retryResp.code}: $retryBody"
                             )
                         )
                     }
                 } else {
+                    logHttpFailure("addChatMember", response.code, body)
                     Result.failure(
                         Exception(
                             "HTTP ${response.code}: $body"
