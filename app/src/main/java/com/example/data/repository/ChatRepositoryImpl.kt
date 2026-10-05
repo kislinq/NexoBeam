@@ -60,16 +60,40 @@ class ChatRepositoryImpl(
                 put("direct_key", directKey)
             }
 
-        val createdChat =
+        val insertChatResult =
             api.insertChat(
                 chatJson,
                 token
-            ).getOrElse {
+            )
+
+        val createdChat = insertChatResult.getOrElse { insertError ->
+            val isUniqueConflict =
+                insertError.message?.contains("23505") == true ||
+                        insertError.message?.contains("chats_direct_key_key") == true
+
+            if (!isUniqueConflict) {
                 return AppResult.Error(
-                    it.message ?: "Не удалось создать чат",
-                    it
+                    insertError.message ?: "Не удалось создать чат",
+                    insertError
                 )
             }
+
+            val existingChatResult =
+                api.getDirectChatByKey(directKey, token)
+
+            if (existingChatResult.isFailure) {
+                val lookupError = existingChatResult.exceptionOrNull()
+                return AppResult.Error(
+                    "Чат с этим пользователем уже есть, но не удалось получить существующую запись",
+                    lookupError
+                )
+            }
+
+            existingChatResult.getOrNull() ?: return AppResult.Error(
+                insertError.message ?: "Не удалось найти существующий чат",
+                insertError
+            )
+        }
 
         val chatId =
             createdChat

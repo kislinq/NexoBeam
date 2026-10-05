@@ -537,6 +537,23 @@ class SupabaseApiClient {
         return executeGetArray(url, token)
     }
 
+    suspend fun getDirectChatByKey(
+        directKey: String,
+        token: String?
+    ): Result<JSONObject?> {
+        if (!AppConfig.isConfigured) {
+            return Result.success(null)
+        }
+
+        val url =
+            "${AppConfig.supabaseUrl}/rest/v1/chats" +
+                    "?direct_key=eq.$directKey&select=*&limit=1"
+
+        return executeGetArray(url, token).map { chats ->
+            chats.optJSONObject(0)
+        }
+    }
+
     suspend fun getMessages(
         chatId: String,
         limit: Int,
